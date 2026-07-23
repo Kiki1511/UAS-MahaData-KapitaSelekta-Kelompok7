@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="WebGIS Analisis Perubahan Vegetasi Kota Manado menggunakan Random Forest dan Sentinel-2 - UAS Maha Data & Kapita Selekta Kelompok 7">
+    <title>UAS Maha Data & Kapita Selekta - Analisis Vegetasi Kota Manado</title>
+
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <!-- Leaflet CSS -->
+    <link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet">
+    <!-- Leaflet Fullscreen -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.fullscreen/3.0.2/Control.FullScreen.css" rel="stylesheet">
+    <!-- Leaflet MiniMap -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/leaflet-minimap/3.6.1/Control.MiniMap.min.css" rel="stylesheet">
+    <!-- Leaflet Search -->
+    <link href="https://cdn.jsdelivr.net/npm/leaflet-search@4.0.0/dist/leaflet-search.min.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link href="style.css" rel="stylesheet">
+</head>
+<body>
+
+    <!-- Loading Screen -->
+    <div id="loadingScreen" class="loading-screen">
+        <div class="loading-content">
+            <div class="loading-logo">
+                <i class="fas fa-globe-americas"></i>
+            </div>
+            <div class="loading-spinner">
+                <div class="spinner-ring"></div>
+                <div class="spinner-ring"></div>
+                <div class="spinner-ring"></div>
+            </div>
+            <h2 class="loading-title">UAS Maha Data & Kapita Selekta</h2>
+            <p class="loading-subtitle">Memuat Analisis Vegetasi Kota Manado...</p>
+            <div class="loading-bar">
+                <div class="loading-bar-fill" id="loadingBarFill"></div>
+            </div>
+            <span class="loading-percent" id="loadingPercent">0%</span>
+        </div>
+    </div>
+
+    <!-- Welcome Modal -->
+    <div class="modal fade" id="welcomeModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content welcome-modal-content">
+                <div class="modal-header welcome-modal-header">
+                    <div class="welcome-icon-wrapper">
+                        <i class="fas fa-satellite"></i>
+                    </div>
+                    <h4 class="modal-title">Selamat Datang di WebGIS Dashboard</h4>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body welcome-modal-body">
+                    <h5><i class="fas fa-leaf me-2 text-success"></i>UAS Maha Data & Kapita Selekta</h5>
+                    <p class="text-muted">Analisis Perubahan Vegetasi Kota Manado Menggunakan Random Forest dan Sentinel-2</p>
+                    <hr>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <div class="welcome-feature-card">
+                                <i class="fas fa-map-marked-alt"></i>
+                                <h6>Peta Interaktif</h6>
+                                <small>Eksplorasi layer vegetasi dengan kontrol penuh</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="welcome-feature-card">
+                                <i class="fas fa-chart-bar"></i>
+                                <h6>Analisis Data</h6>
+                                <small>Statistik lengkap perubahan vegetasi</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="welcome-feature-card">
+                                <i class="fas fa-robot"></i>
+                                <h6>AI Insight</h6>
+                                <small>Interpretasi otomatis berbasis data</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-3 text-center">
+                        <span class="badge bg-primary-gradient"><i class="fas fa-users me-1"></i> Kelompok 7</span>
+                        <span class="badge bg-success-gradient ms-2"><i class="fas fa-university me-1"></i> Universitas Bakrie</span>
+                    </div>
+                </div>
+                <div class="modal-footer welcome-modal-footer">
+                    <button type="button" class="btn btn-primary-gradient btn-lg w-100" data-bs-dismiss="modal">
+                        <i class="fas fa-rocket me-2"></i>Mulai Eksplorasi
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container position-fixed top-0 end-0 p-3" id="toastContainer" style="z-index: 99999;"></div>
+
+    <!-- Main Wrapper -->
+    <div class="app-wrapper" id="appWrapper">
+        <!-- Top Navbar -->
+        <nav class="top-navbar" id="topNavbar">
+            <div class="navbar-left">
+                <button class="btn btn-icon sidebar-toggle" id="leftSidebarToggle" title="Toggle Layer Panel">
+                    <i class="fas fa-layer-group"></i>
+                </button>
+                <div class="navbar-brand">
+                    <i class="fas fa-globe-americas brand-icon"></i>
+                    <div class="brand-text">
+                        <h1>UAS Maha Data & Kapita Selekta</h1>
+                        <span>Analisis Perubahan Vegetasi Kota Manado</span>
+                    </div>
+                </div>
+            </div>
+            <div class="navbar-center">
+                <div class="nav-tabs-wrapper">
+                    <button class="nav-tab active" data-tab="peta" id="tabPeta">
+                        <i class="fas fa-map"></i><span>Peta Hasil</span>
+                    </button>
+                    <button class="nav-tab" data-tab="data" id="tabData">
+                        <i class="fas fa-project-diagram"></i><span>Data & Proses</span>
+                    </button>
+                    <button class="nav-tab" data-tab="evaluasi" id="tabEvaluasi">
+                        <i class="fas fa-brain"></i><span>Evaluasi Model</span>
+                    </button>
+                    <button class="nav-tab" data-tab="insight" id="tabInsight">
+                        <i class="fas fa-chart-line"></i><span>Insight Hasil</span>
+                    </button>
+                    <button class="nav-tab" data-tab="tentang" id="tabTentang">
+                        <i class="fas fa-info-circle"></i><span>Tentang</span>
+                    </button>
+                </div>
+            </div>
+            <div class="navbar-right">
+                <button class="btn btn-icon" id="themeToggle" title="Toggle Dark/Light Mode">
+                    <i class="fas fa-moon"></i>
+                </button>
+                <button class="btn btn-icon" id="screenshotBtn" title="Screenshot">
+                    <i class="fas fa-camera"></i>
+                </button>
+                <button class="btn btn-icon" id="rightSidebarToggle" title="Toggle Dashboard">
+                    <i class="fas fa-chart-pie"></i>
+                </button>
+            </div>
+        </nav>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <!-- Left Sidebar -->
+            <aside class="left-sidebar" id="leftSidebar">
+                <div class="sidebar-header">
+                    <h5><i class="fas fa-layer-group me-2"></i>Layer Control</h5>
+                    <button class="btn btn-icon btn-sm" id="leftSidebarClose">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                </div>
+                <div class="sidebar-body">
+                    <!-- Layer Toggles -->
+                    <div class="layer-section">
+                        <h6 class="layer-section-title"><i class="fas fa-map me-2"></i>Basemap</h6>
+                        <div class="layer-item">
+                            <label class="layer-toggle">
+                                <input type="checkbox" id="layerBasemap" checked>
+                                <span class="layer-toggle-slider"></span>
+                                <span class="layer-label"><i class="fas fa-globe me-2"></i>OpenStreetMap</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="layer-section">
+                        <h6 class="layer-section-title"><i class="fas fa-draw-polygon me-2"></i>Layer Data</h6>
+                        <div class="layer-item">
+                            <label class="layer-toggle">
+                                <input type="checkbox" id="layerBatas" checked>
+                                <span class="layer-toggle-slider"></span>
+                                <span class="layer-label">
+                                    <span class="layer-color" style="background: #1a237e;"></span>
+                                    Batas Kota Manado
+                                </span>
+                            </label>
+                        </div>
+                        <div class="layer-item">
+                            <label class="layer-toggle">
+                                <input type="checkbox" id="layerVeg2024" checked>
+                                <span class="layer-toggle-slider"></span>
+                                <span class="layer-label">
+                                    <span class="layer-color" style="background: #66bb6a;"></span>
+                                    Vegetasi 2024
+                                </span>
+                            </label>
+                        </div>
+                        <div class="layer-item">
+                            <label class="layer-toggle">
+                                <input type="checkbox" id="layerVeg2025" checked>
+                                <span class="layer-toggle-slider"></span>
+                                <span class="layer-label">
+                                    <span class="layer-color" style="background: #2e7d32;"></span>
+                                    Vegetasi 2025
+                                </span>
+                            </label>
+                        </div>
+                        <div class="layer-item">
+                            <label class="layer-toggle">
+                                <input type="checkbox" id="layerGain" checked>
+                                <span class="layer-toggle-slider"></span>
+                                <span class="layer-label">
+                                    <span class="layer-color" style="background: #1565c0;"></span>
+                                    Gain (Bertambah)
+                                </span>
+                            </label>
+                        </div>
+                        <div class="layer-item">
+                            <label class="layer-toggle">
+                                <input type="checkbox" id="layerLoss" checked>
+                                <span class="layer-toggle-slider"></span>
+                                <span class="layer-label">
+                                    <span class="layer-color" style="background: #c62828;"></span>
+                                    Loss (Berkurang)
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Opacity Control -->
+                    <div class="layer-section">
+                        <h6 class="layer-section-title"><i class="fas fa-adjust me-2"></i>Opacity</h6>
+                        <div class="opacity-control">
+                            <label>Vegetasi 2024</label>
+                            <input type="range" class="opacity-slider" id="opacityVeg2024" min="0" max="1" step="0.1" value="0.7">
+                            <span class="opacity-value" id="opacityVeg2024Val">70%</span>
+                        </div>
+                        <div class="opacity-control">
+                            <label>Vegetasi 2025</label>
+                            <input type="range" class="opacity-slider" id="opacityVeg2025" min="0" max="1" step="0.1" value="0.7">
+                            <span class="opacity-value" id="opacityVeg2025Val">70%</span>
+                        </div>
+                        <div class="opacity-control">
+                            <label>Gain</label>
+                            <input type="range" class="opacity-slider" id="opacityGain" min="0" max="1" step="0.1" value="0.7">
+                            <span class="opacity-value" id="opacityGainVal">70%</span>
+                        </div>
+                        <div class="opacity-control">
+                            <label>Loss</label>
+                            <input type="range" class="opacity-slider" id="opacityLoss" min="0" max="1" step="0.1" value="0.7">
+                            <span class="opacity-value" id="opacityLossVal">70%</span>
+                        </div>
+                    </div>
+
+                    <!-- Legend -->
+                    <div class="layer-section">
+                        <h6 class="layer-section-title"><i class="fas fa-palette me-2"></i>Legenda</h6>
+                        <div class="legend-container">
+                            <div class="legend-item">
+                                <span class="legend-color" style="background: #66bb6a;"></span>
+                                <span>Vegetasi 2024</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color" style="background: #2e7d32;"></span>
+                                <span>Vegetasi 2025</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color" style="background: #1565c0;"></span>
+                                <span>Gain (Bertambah)</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color" style="background: #c62828;"></span>
+                                <span>Loss (Berkurang)</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color" style="background: #1a237e; border: 2px solid #1a237e;"></span>
+                                <span>Batas Kota Manado</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Map Tools -->
+                    <div class="layer-section">
+                        <h6 class="layer-section-title"><i class="fas fa-tools me-2"></i>Map Tools</h6>
+                        <div class="map-tools-grid">
+                            <button class="map-tool-btn" id="btnResetView" title="Reset View">
+                                <i class="fas fa-home"></i><span>Home</span>
+                            </button>
+                            <button class="map-tool-btn" id="btnFullscreen" title="Fullscreen">
+                                <i class="fas fa-expand"></i><span>Fullscreen</span>
+                            </button>
+                            <button class="map-tool-btn" id="btnExportMap" title="Export Map PNG">
+                                <i class="fas fa-image"></i><span>Export</span>
+                            </button>
+                            <button class="map-tool-btn" id="btnDownloadCSV" title="Download CSV">
+                                <i class="fas fa-download"></i><span>CSV</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Content Area -->
+            <div class="content-area" id="contentArea">
+                <!-- Tab: Peta Hasil -->
+                <div class="tab-content-panel active" id="panelPeta">
+                    <div id="map" class="map-container"></div>
+                    <div class="map-coordinates" id="mapCoordinates">
+                        <i class="fas fa-crosshairs me-1"></i>
+                        Lat: <span id="coordLat">0.000000</span>, Lng: <span id="coordLng">0.000000</span>
+                    </div>
+                </div>
+
+                <!-- Tab: Data & Proses -->
+                <div class="tab-content-panel" id="panelData">
+                    <div class="panel-scroll">
+                        <div class="panel-header fade-in">
+                            <h2><i class="fas fa-project-diagram me-2"></i>Data & Proses Analisis</h2>
+                            <p class="text-muted">Alur lengkap penelitian UAS Maha Data & Kapita Selekta dari input data hingga publikasi WebGIS</p>
+                        </div>
+                        <div class="timeline-container" id="timelineContainer">
+                            <!-- Timeline accordion generated by JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Evaluasi Model -->
+                <div class="tab-content-panel" id="panelEvaluasi">
+                    <div class="panel-scroll">
+                        <div class="panel-header fade-in">
+                            <h2><span class="me-2">🤖</span>AI Model Evaluation</h2>
+                            <p class="text-muted">Evaluasi performa algoritma Random Forest</p>
+                            <span class="badge badge-excellent"><i class="fas fa-trophy me-1"></i>Excellent Model Performance</span>
+                        </div>
+
+                        <!-- Metric Cards -->
+                        <div class="row g-4 mb-4 fade-in">
+                            <div class="col-md-3 col-sm-6">
+                                <div class="metric-card metric-accuracy">
+                                    <div class="metric-icon"><i class="fas fa-bullseye"></i></div>
+                                    <div class="metric-label">Accuracy</div>
+                                    <div class="metric-value" data-target="97.67">0</div>
+                                    <div class="metric-unit">%</div>
+                                    <div class="metric-bar"><div class="metric-bar-fill" data-width="97.67"></div></div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 col-sm-6">
+                                <div class="metric-card metric-precision">
+                                    <div class="metric-icon"><i class="fas fa-crosshairs"></i></div>
+                                    <div class="metric-label">Precision</div>
+                                    <div class="metric-value" data-target="96.43">0</div>
+                                    <div class="metric-unit">%</div>
+                                    <div class="metric-bar"><div class="metric-bar-fill" data-width="96.43"></div></div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 col-sm-6">
+                                <div class="metric-card metric-recall">
+                                    <div class="metric-icon"><i class="fas fa-search"></i></div>
+                                    <div class="metric-label">Recall</div>
+                                    <div class="metric-value" data-target="99.26">0</div>
+                                    <div class="metric-unit">%</div>
+                                    <div class="metric-bar"><div class="metric-bar-fill" data-width="99.26"></div></div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 col-sm-6">
+                                <div class="metric-card metric-f1">
+                                    <div class="metric-icon"><i class="fas fa-chart-line"></i></div>
+                                    <div class="metric-label">F1 Score</div>
+                                    <div class="metric-value" data-target="97.83">0</div>
+                                    <div class="metric-unit">%</div>
+                                    <div class="metric-bar"><div class="metric-bar-fill" data-width="97.83"></div></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Charts Row -->
+                        <div class="row g-4 mb-4 fade-in">
+                            <div class="col-md-6">
+                                <div class="glass-card">
+                                    <h5 class="card-title-modern"><i class="fas fa-chart-bar me-2"></i>Perbandingan Metrik</h5>
+                                    <canvas id="evalBarChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="glass-card">
+                                    <h5 class="card-title-modern"><i class="fas fa-spider me-2"></i>Radar Chart</h5>
+                                    <canvas id="evalRadarChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Confusion Matrix -->
+                        <div class="row g-4 mb-4 fade-in">
+                            <div class="col-md-6">
+                                <div class="glass-card">
+                                    <h5 class="card-title-modern"><i class="fas fa-th me-2"></i>Confusion Matrix</h5>
+                                    <div class="confusion-matrix-wrapper">
+                                        <table class="confusion-matrix">
+                                            <thead>
+                                                <tr>
+                                                    <th class="cm-header">Aktual / Prediksi</th>
+                                                    <th class="cm-header">0</th>
+                                                    <th class="cm-header">1</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td class="cm-label">0</td>
+                                                    <td class="cm-correct">117</td>
+                                                    <td class="cm-wrong">5</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="cm-label">1</td>
+                                                    <td class="cm-wrong">1</td>
+                                                    <td class="cm-correct">135</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div class="cm-legend mt-3">
+                                        <span><span class="legend-dot" style="background:#4caf50;"></span> Klasifikasi Benar</span>
+                                        <span><span class="legend-dot" style="background:#ef5350;"></span> Klasifikasi Salah</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="glass-card">
+                                    <h5 class="card-title-modern"><i class="fas fa-file-alt me-2"></i>Ringkasan Hasil</h5>
+                                    <div class="summary-text">
+                                        <p>Model <strong>Random Forest</strong> dibangun menggunakan gabungan data Ground Truth tahun 2024 dan 2025 sebanyak <strong>400 titik</strong>. Setelah pembagian data Training <strong>70%</strong> dan Testing <strong>30%</strong>, model menghasilkan:</p>
+                                        <ul class="summary-metrics">
+                                            <li><i class="fas fa-check-circle text-success me-2"></i>Accuracy: <strong>97,67%</strong></li>
+                                            <li><i class="fas fa-check-circle text-success me-2"></i>Precision: <strong>96,43%</strong></li>
+                                            <li><i class="fas fa-check-circle text-success me-2"></i>Recall: <strong>99,26%</strong></li>
+                                            <li><i class="fas fa-check-circle text-success me-2"></i>F1 Score: <strong>97,83%</strong></li>
+                                        </ul>
+                                        <p class="mt-3">Hasil ini menunjukkan performa klasifikasi yang <strong>sangat baik</strong>, sehingga model layak digunakan untuk analisis perubahan vegetasi.</p>
+                                    </div>
+                                    <div class="data-split-visual mt-3">
+                                        <h6 class="mb-2"><i class="fas fa-database me-2"></i>Data Split</h6>
+                                        <div class="split-bar">
+                                            <div class="split-train" style="width:70%;">Training 70%</div>
+                                            <div class="split-test" style="width:30%;">Testing 30%</div>
+                                        </div>
+                                        <small class="text-muted mt-1 d-block">Total: 400 Ground Truth Points (2024 + 2025)</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Insight Hasil -->
+                <div class="tab-content-panel" id="panelInsight">
+                    <div class="panel-scroll">
+                        <div class="panel-header fade-in">
+                            <h2><i class="fas fa-chart-line me-2"></i>Insight Hasil Analisis</h2>
+                            <p class="text-muted">Statistik perubahan vegetasi Kota Manado berdasarkan data CSV</p>
+                        </div>
+
+                        <!-- Stat Cards -->
+                        <div class="row g-3 mb-4 fade-in" id="insightCards">
+                            <!-- Generated by JS -->
+                        </div>
+
+                        <!-- AI Insight Panel -->
+                        <div class="glass-card ai-insight-card mb-4 fade-in">
+                            <div class="ai-insight-header">
+                                <h5><i class="fas fa-robot me-2"></i>AI Insight</h5>
+                                <span class="badge badge-ai">AI Generated Insight</span>
+                            </div>
+                            <div class="ai-insight-body" id="aiInsightText">
+                                <p><i class="fas fa-spinner fa-spin me-2"></i>Menganalisis data...</p>
+                            </div>
+                        </div>
+
+                        <!-- Smart Analytics -->
+                        <div class="glass-card mb-4 fade-in">
+                            <h5 class="card-title-modern"><i class="fas fa-brain me-2"></i>Smart Analytics</h5>
+                            <div class="row g-3" id="smartAnalyticsContainer">
+                                <!-- Generated by JS -->
+                            </div>
+                        </div>
+
+                        <!-- Charts -->
+                        <div class="row g-4 mb-4 fade-in">
+                            <div class="col-md-4">
+                                <div class="glass-card">
+                                    <h5 class="card-title-modern"><i class="fas fa-chart-bar me-2"></i>Bar Chart</h5>
+                                    <canvas id="insightBarChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="glass-card">
+                                    <h5 class="card-title-modern"><i class="fas fa-chart-pie me-2"></i>Doughnut Chart</h5>
+                                    <canvas id="insightDoughnutChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="glass-card">
+                                    <h5 class="card-title-modern"><i class="fas fa-chart-line me-2"></i>Line Chart</h5>
+                                    <canvas id="insightLineChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Tentang -->
+                <div class="tab-content-panel" id="panelTentang">
+                    <div class="panel-scroll">
+                        <div class="panel-header fade-in text-center">
+                            <div class="about-hero">
+                                <i class="fas fa-satellite-dish about-hero-icon"></i>
+                                <h2>UAS Maha Data & Kapita Selekta</h2>
+                                <p class="lead">Analisis Perubahan Vegetasi Kota Manado Menggunakan Citra Sentinel-2 dan Algoritma Random Forest</p>
+                                <span class="badge bg-primary-gradient badge-lg"><i class="fas fa-users me-1"></i> Kelompok 7</span>
+                            </div>
+                        </div>
+
+                        <!-- Technology Descriptions -->
+                        <div class="row g-4 mb-4 fade-in">
+                            <div class="col-md-4 col-sm-6">
+                                <div class="about-card">
+                                    <div class="about-card-icon" style="background: linear-gradient(135deg, #4285F4, #34A853);"><i class="fas fa-globe"></i></div>
+                                    <h5>Google Earth Engine</h5>
+                                    <p>Platform geospasial berbasis cloud dari Google untuk analisis data citra satelit berskala besar secara efisien.</p>
+                                </div>
+                            </div>
+                            <div class="col-md-4 col-sm-6">
+                                <div class="about-card">
+                                    <div class="about-card-icon" style="background: linear-gradient(135deg, #1565c0, #42a5f5);"><i class="fas fa-satellite"></i></div>
+                                    <h5>Sentinel-2</h5>
+                                    <p>Satelit observasi bumi dari ESA yang menyediakan citra multispektral resolusi tinggi untuk pemantauan tutupan lahan.</p>
+                                </div>
+                            </div>
+                            <div class="col-md-4 col-sm-6">
+                                <div class="about-card">
+                                    <div class="about-card-icon" style="background: linear-gradient(135deg, #2e7d32, #66bb6a);"><i class="fas fa-leaf"></i></div>
+                                    <h5>NDVI</h5>
+                                    <p>Normalized Difference Vegetation Index — indeks untuk mengukur tingkat kehijauan dan kesehatan vegetasi dari citra satelit.</p>
+                                </div>
+                            </div>
+                            <div class="col-md-4 col-sm-6">
+                                <div class="about-card">
+                                    <div class="about-card-icon" style="background: linear-gradient(135deg, #e65100, #ff9800);"><i class="fas fa-tree"></i></div>
+                                    <h5>Random Forest</h5>
+                                    <p>Algoritma machine learning ensemble yang menggunakan banyak decision tree untuk klasifikasi tutupan lahan dengan akurasi tinggi.</p>
+                                </div>
+                            </div>
+                            <div class="col-md-4 col-sm-6">
+                                <div class="about-card">
+                                    <div class="about-card-icon" style="background: linear-gradient(135deg, #c62828, #ef5350);"><i class="fas fa-exchange-alt"></i></div>
+                                    <h5>Change Detection</h5>
+                                    <p>Teknik analisis perubahan tutupan lahan antar dua periode waktu untuk mengidentifikasi area gain dan loss vegetasi.</p>
+                                </div>
+                            </div>
+                            <div class="col-md-4 col-sm-6">
+                                <div class="about-card">
+                                    <div class="about-card-icon" style="background: linear-gradient(135deg, #1a237e, #3f51b5);"><i class="fas fa-map-marked-alt"></i></div>
+                                    <h5>Leaflet & WebGIS</h5>
+                                    <p>Library JavaScript open-source untuk membuat peta interaktif yang digunakan sebagai platform visualisasi hasil analisis geospasial.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Technologies Used -->
+                        <div class="glass-card mb-4 fade-in">
+                            <h5 class="card-title-modern"><i class="fas fa-code me-2"></i>Teknologi yang Digunakan</h5>
+                            <div class="tech-grid">
+                                <div class="tech-badge"><i class="fab fa-html5"></i> HTML5</div>
+                                <div class="tech-badge"><i class="fab fa-css3-alt"></i> CSS3</div>
+                                <div class="tech-badge"><i class="fab fa-js-square"></i> JavaScript</div>
+                                <div class="tech-badge"><i class="fab fa-bootstrap"></i> Bootstrap 5</div>
+                                <div class="tech-badge"><i class="fas fa-map"></i> Leaflet.js</div>
+                                <div class="tech-badge"><i class="fas fa-chart-bar"></i> Chart.js</div>
+                                <div class="tech-badge"><i class="fas fa-file-csv"></i> PapaParse</div>
+                                <div class="tech-badge"><i class="fas fa-icons"></i> Font Awesome</div>
+                                <div class="tech-badge"><i class="fas fa-globe"></i> Google Earth Engine</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Sidebar -->
+            <aside class="right-sidebar" id="rightSidebar">
+                <div class="sidebar-header">
+                    <h5><i class="fas fa-chart-pie me-2"></i>Dashboard</h5>
+                    <button class="btn btn-icon btn-sm" id="rightSidebarClose">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+                <div class="sidebar-body">
+                    <!-- Dashboard Stats -->
+                    <div class="dashboard-stats" id="dashboardStats">
+                        <!-- Generated by JS -->
+                    </div>
+
+                    <!-- Interactive Stats (layer click) -->
+                    <div class="layer-click-info" id="layerClickInfo" style="display: none;">
+                        <h6 class="layer-section-title"><i class="fas fa-mouse-pointer me-2"></i>Layer Info</h6>
+                        <div id="layerClickDetails"></div>
+                    </div>
+
+                    <!-- Smart Analytics Mini -->
+                    <div class="smart-analytics-mini mt-3">
+                        <h6 class="layer-section-title"><i class="fas fa-brain me-2"></i>Smart Analytics</h6>
+                        <div id="smartAnalyticsMini">
+                            <!-- Generated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- AI Insight Mini -->
+                    <div class="ai-insight-mini mt-3">
+                        <h6 class="layer-section-title"><i class="fas fa-robot me-2"></i>AI Insight</h6>
+                        <div class="badge badge-ai mb-2">AI Generated Insight</div>
+                        <p class="small" id="aiInsightMiniText">Menganalisis data...</p>
+                    </div>
+                </div>
+            </aside>
+        </div>
+
+        <!-- Footer -->
+        <footer class="app-footer" id="appFooter">
+            <div class="footer-content">
+                <div class="footer-left">
+                    <span><i class="fas fa-globe-americas me-1"></i> UAS Maha Data & Kapita Selekta</span>
+                </div>
+                <div class="footer-center">
+                    <span>Kelompok 7 · Program Studi Sistem Informasi · Universitas Bakrie · 2026</span>
+                </div>
+                <div class="footer-right">
+                    <span id="footerClock"></span>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- AI Chatbot -->
+    <div id="chatbotToggle" class="chatbot-toggle" title="AI Chatbot">
+        <i class="fas fa-robot"></i>
+        <span class="chatbot-badge">AI</span>
+    </div>
+    <div id="chatbotPanel" class="chatbot-panel">
+        <div class="chatbot-header">
+            <div class="chatbot-header-left">
+                <div class="chatbot-avatar"><i class="fas fa-robot"></i></div>
+                <div>
+                    <h6>GeoBot AI Assistant</h6>
+                    <small>Tanya tentang Vegetasi Manado</small>
+                </div>
+            </div>
+            <button class="btn btn-icon btn-sm chatbot-close" id="chatbotClose">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="chatbot-messages" id="chatbotMessages">
+            <div class="chat-message bot-message">
+                <div class="chat-avatar"><i class="fas fa-robot"></i></div>
+                <div class="chat-bubble">
+                    Halo! 👋 Saya <strong>GeoBot</strong>, asisten AI untuk analisis vegetasi Kota Manado.<br><br>
+                    Silakan tanyakan apa saja tentang:
+                    <ul>
+                        <li>🌿 Klasifikasi vegetasi</li>
+                        <li>📊 Statistik perubahan</li>
+                        <li>🤖 Random Forest</li>
+                        <li>🛰 Sentinel-2 & NDVI</li>
+                        <li>🗺 Peta & Layer</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="chatbot-suggestions" id="chatbotSuggestions">
+            <button class="chat-suggestion" data-q="Bagaimana hasil klasifikasi vegetasi?">🌿 Klasifikasi</button>
+            <button class="chat-suggestion" data-q="Berapa luas vegetasi Manado?">📏 Luas Vegetasi</button>
+            <button class="chat-suggestion" data-q="Jelaskan algoritma Random Forest">🤖 Random Forest</button>
+            <button class="chat-suggestion" data-q="Apa itu NDVI?">🛰 NDVI</button>
+            <button class="chat-suggestion" data-q="Bagaimana perubahan vegetasi?">📈 Perubahan</button>
+            <button class="chat-suggestion" data-q="Apa akurasi model?">🎯 Akurasi</button>
+        </div>
+        <div class="chatbot-input">
+            <input type="text" id="chatbotInput" placeholder="Ketik pertanyaan..." autocomplete="off">
+            <button id="chatbotSend" class="chatbot-send-btn">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.fullscreen/3.0.2/Control.FullScreen.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-minimap/3.6.1/Control.MiniMap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet-search@4.0.0/dist/leaflet-search.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- html2canvas for screenshot/export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Leaflet-image for map export -->
+    <script src="https://unpkg.com/leaflet-image@0.4.0/leaflet-image.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
