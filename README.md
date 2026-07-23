@@ -39,7 +39,7 @@ report/
 3. Jalankan file `index.html` menggunakan ekstensi **Live Server** (atau akses melalui GitHub Pages jika sudah tersedia).
 
 ## Link WebGIS
-https://.....
+https://project-uas-mahadata-kapitaselekta.vercel.app/
 
 ## Link Laporan
 https://docs.google.com/document/d/1vNWSZln2xZgoUO5ZRB5c8sIsHlM-OkNOwHRS0NDtDAw/edit?usp=sharing
